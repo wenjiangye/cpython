@@ -42,6 +42,15 @@ extern int ftime(struct timeb *);
 #include <windows.h>
 #include "pythread.h"
 
+#if defined(_MSC_VER) && (_MSC_VER >= 1900)
+#define USE_MSC_VS_201X
+#endif
+
+#ifdef USE_MSC_VS_201X
+#include <time.h>
+#endif
+
+
 /* helper to allow us to interrupt sleep() on Windows*/
 static HANDLE hInterruptEvent = NULL;
 static BOOL WINAPI PyCtrlHandler(DWORD dwCtrlType)
@@ -805,7 +814,7 @@ inittimezone(PyObject *m) {
      */
 #if defined(HAVE_TZNAME) && !defined(__GLIBC__) && !defined(__CYGWIN__)
     tzset();
-#ifdef PYOS_OS2
+#if defined(PYOS_OS2) || defined(USE_MSC_VS_201X) 
     PyModule_AddIntConstant(m, "timezone", _timezone);
 #else /* !PYOS_OS2 */
     PyModule_AddIntConstant(m, "timezone", timezone);
@@ -813,15 +822,19 @@ inittimezone(PyObject *m) {
 #ifdef HAVE_ALTZONE
     PyModule_AddIntConstant(m, "altzone", altzone);
 #else
-#ifdef PYOS_OS2
+#if defined(PYOS_OS2) || defined(USE_MSC_VS_201X) 
     PyModule_AddIntConstant(m, "altzone", _timezone-3600);
 #else /* !PYOS_OS2 */
     PyModule_AddIntConstant(m, "altzone", timezone-3600);
 #endif /* PYOS_OS2 */
 #endif
+#if defined(PYOS_OS2) || defined(USE_MSC_VS_201X)
+    PyModule_AddIntConstant(m, "daylight", _daylight);
+    PyModule_AddObject(m, "tzname", Py_BuildValue("(zz)", _tzname[0], _tzname[1]));
+#else
     PyModule_AddIntConstant(m, "daylight", daylight);
-    PyModule_AddObject(m, "tzname",
-                       Py_BuildValue("(zz)", tzname[0], tzname[1]));
+    PyModule_AddObject(m, "tzname", Py_BuildValue("(zz)", tzname[0], tzname[1]));
+#endif
 #else /* !HAVE_TZNAME || __GLIBC__ || __CYGWIN__*/
 #ifdef HAVE_STRUCT_TM_TM_ZONE
     {
